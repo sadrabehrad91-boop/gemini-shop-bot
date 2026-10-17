@@ -29,6 +29,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from aiohttp import web
+
 import config
 
 logging.basicConfig(level=logging.INFO)
@@ -410,6 +412,26 @@ async def cmd_stock(message: types.Message):
 
 
 # ---------------------------------------------------------------------------
+# سرور سلامت (Health check) — برای هاست‌هایی مثل Render که پورت HTTP می‌خواهند
+# ---------------------------------------------------------------------------
+
+async def _health_handler(request: web.Request) -> web.Response:
+    return web.Response(text="ok")
+
+
+async def start_health_server() -> None:
+    port = int(os.environ.get("PORT", "8080"))
+    app = web.Application()
+    app.router.add_get("/", _health_handler)
+    app.router.add_get("/health", _health_handler)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info("سرور سلامت روی پورت %d بالا آمد", port)
+
+
+# ---------------------------------------------------------------------------
 # نقطه شروع
 # ---------------------------------------------------------------------------
 
@@ -433,6 +455,7 @@ async def main() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     logger.info("ربات شروع به کار کرد... (حالت polling)")
+    asyncio.create_task(start_health_server())
     await dp.start_polling(bot)
 
 
